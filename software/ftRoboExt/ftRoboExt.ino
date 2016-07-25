@@ -67,16 +67,6 @@ void setup() {
 
   SPI.setDataMode(SPI_MODE3);
   SPI.attachInterrupt();
-
-  //analogWrite(PIN_INH1, 100);
-  analogWrite(PIN_INH2, 100);
-  analogWrite(PIN_INH3, 100);
-  analogWrite(PIN_INH4, 100);
-  
-  //digitalWrite(PIN_INA2, HIGH);
-  //digitalWrite(PIN_INB2, LOW);
-
-  //while(1);
 }
 
 ISR (SPI_STC_vect) //SPI interrupt
@@ -136,14 +126,6 @@ void loop() {
   analogWrite(PIN_INH2, speed3 << 5);
   analogWrite(PIN_INH3, speed5 << 5);
   analogWrite(PIN_INH4, speed7 << 5);
-  static bool last = false;
-  if (!last && (bufIn[1] & bit(0)) != 0) {
-    last = true;
-    debugDataOut++;
-  }
-  if((bufIn[1] & bit(0)) == 0) {
-    last = false;
-  }
   
   delay(1);
 }
