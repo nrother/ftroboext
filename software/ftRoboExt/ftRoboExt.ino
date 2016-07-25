@@ -29,6 +29,7 @@ byte bufOut[6] = { 0x00, 0x00, 0x00, 110 /*330/3*/, 0x00, 0x00 };
 byte bufIn[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 volatile byte pos;
 byte debugDataOut = 0;
+byte pwmLUT[8] = {77, 102, 128, 153, 179, 204, 230, 255} //This matches the original robo interface, although we use 500Hz instead of 1kHz
 
 void setup() {
   pinMode(PIN_I1, INPUT);
@@ -122,10 +123,10 @@ void loop() {
   byte speed5 = (bufIn[3] >> 4) & 0x7;
   byte speed7 = (bufIn[4] >> 2) & 0x7;
   
-  analogWrite(PIN_INH1, speed1 << 5);
-  analogWrite(PIN_INH2, speed3 << 5);
-  analogWrite(PIN_INH3, speed5 << 5);
-  analogWrite(PIN_INH4, speed7 << 5);
+  analogWrite(PIN_INH1, pwmLUT[speed1]);
+  analogWrite(PIN_INH2, pwmLUT[speed3]);
+  analogWrite(PIN_INH3, pwmLUT[speed5]);
+  analogWrite(PIN_INH4, pwmLUT[speed7]);
   
   delay(1);
 }
