@@ -29,7 +29,7 @@ byte bufOut[6] = { 0x00, 0x00, 0x00, 110 /*330/3*/, 0x00, 0x00 };
 byte bufIn[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 volatile byte pos;
 byte debugDataOut = 0;
-byte pwmLUT[8] = {77, 102, 128, 153, 179, 204, 230, 255} //This matches the original robo interface, although we use 500Hz instead of 1kHz
+byte pwmLUT[8] = {77, 102, 128, 153, 179, 204, 230, 255}; //This matches the original robo interface, although we use 500Hz instead of 1kHz
 
 void setup() {
   pinMode(PIN_I1, INPUT);
