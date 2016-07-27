@@ -31,6 +31,12 @@ volatile byte pos;
 byte debugDataOut = 0;
 byte pwmLUT[8] = {77, 102, 128, 153, 179, 204, 230, 255}; //This matches the original robo interface, although we use 500Hz instead of 1kHz
 
+#define SECOND_MODULE //if enabled, simulate a second EM for storing data.
+/* The second EM is kind of hack purely based on timing because we cannot read
+ * ADDR1 due to hardware restrictions (see below). In praxis this seems to work
+ * quite well.
+ */
+
 void setup() {
   pinMode(PIN_I1, INPUT);
   pinMode(PIN_I2, INPUT);
@@ -83,11 +89,13 @@ ISR (SPI_STC_vect) //SPI interrupt
   digitalWriteEmAck(LOW);
 }
 
+bool first = false;
 void loop() {
   //wait for address
-  while (digitalRead(PIN_ADDR0) == HIGH) {}
-
-  //reset SPI module
+  if (first) while (digitalRead(PIN_ADDR0) == HIGH) {}
+  else delayMicroseconds(50); //wait until master should have addressed us (this is just a guess!)
+  
+  //reset SPI module, just in case (system can hang up on startup otherwise)
   SPCR &= ~bit(SPE);
   SPCR |= bit(SPE);
   pos = 0;
@@ -102,33 +110,42 @@ void loop() {
   delayMicroseconds(100); //700µs delay in original module, not sure if needed
   digitalWriteEmAck(LOW);
 
-  while (digitalRead(PIN_ADDR0) == LOW) {} //wait for master to release address
+  if (first) while (digitalRead(PIN_ADDR0) == LOW) {} //wait for master to release address
+  else {
+    //wait for 6 bytes or 600µs timeout
+    unsigned long start = micros();
+    while(pos < 6 && (micros() - start) < 600) {}
+  }
 
   delayMicroseconds(10);
   digitalWriteEmAck(HIGH);
 
   //process in data
-  digitalWrite(PIN_INA1, (bufIn[1] & bit(0)) != 0);
-  digitalWrite(PIN_INB1, (bufIn[1] & bit(1)) != 0);
-  digitalWrite(PIN_INA2, (bufIn[1] & bit(2)) != 0);
-  digitalWrite(PIN_INB2, (bufIn[1] & bit(3)) != 0);
-  digitalWrite(PIN_INA3, (bufIn[1] & bit(4)) != 0);
-  digitalWrite(PIN_INB3, (bufIn[1] & bit(5)) != 0);
-  digitalWriteInA4((bufIn[1] & bit(6)) != 0);
-  digitalWrite(PIN_INB4, (bufIn[1] & bit(7)) != 0);
-
-  //we ignore the even speeds, this will be the same as the odd due to hardware limitations. Maybe we can do some clever tricks to fix that...
-  byte speed1 = bufIn[2] & 0x7;
-  byte speed3 = ((bufIn[3] & 0x1) << 2) | ((bufIn[2] >> 6) & 0x3); //Yay, bit magic...
-  byte speed5 = (bufIn[3] >> 4) & 0x7;
-  byte speed7 = (bufIn[4] >> 2) & 0x7;
+  if (first) {
+    digitalWrite(PIN_INA1, (bufIn[1] & bit(0)) != 0);
+    digitalWrite(PIN_INB1, (bufIn[1] & bit(1)) != 0);
+    digitalWrite(PIN_INA2, (bufIn[1] & bit(2)) != 0);
+    digitalWrite(PIN_INB2, (bufIn[1] & bit(3)) != 0);
+    digitalWrite(PIN_INA3, (bufIn[1] & bit(4)) != 0);
+    digitalWrite(PIN_INB3, (bufIn[1] & bit(5)) != 0);
+    digitalWriteInA4((bufIn[1] & bit(6)) != 0);
+    digitalWrite(PIN_INB4, (bufIn[1] & bit(7)) != 0);
   
-  analogWrite(PIN_INH1, pwmLUT[speed1]);
-  analogWrite(PIN_INH2, pwmLUT[speed3]);
-  analogWrite(PIN_INH3, pwmLUT[speed5]);
-  analogWrite(PIN_INH4, pwmLUT[speed7]);
-  
-  delay(1);
+    //we ignore the even speeds, this will be the same as the odd due to hardware limitations. Maybe we can do some clever tricks to fix that...
+    byte speed1 = bufIn[2] & 0x7;
+    byte speed3 = ((bufIn[3] & 0x1) << 2) | ((bufIn[2] >> 6) & 0x3); //Yay, bit magic...
+    byte speed5 = (bufIn[3] >> 4) & 0x7;
+    byte speed7 = (bufIn[4] >> 2) & 0x7;
+    
+    analogWrite(PIN_INH1, pwmLUT[speed1]);
+    analogWrite(PIN_INH2, pwmLUT[speed3]);
+    analogWrite(PIN_INH3, pwmLUT[speed5]);
+    analogWrite(PIN_INH4, pwmLUT[speed7]);
+  }
+  else delay(3); //the master will continue with EM3 so wait here until he gives up. Without this delay we sometimes recv data for EM3 as EM1!
+  #ifdef SECOND_MODULE
+  first = !first;
+  #endif
 }
 
 void digitalWriteEmAck(byte val) {
